@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>比例偵探事務所 - 尋找數學真相</title>
+    <style>
+        :root {
+            --bg-color: #2c3e50;
+            --card-bg: #ecf0f1;
+            --accent: #e74c3c;
+            --text: #2c3e50;
+            --correct: #27ae60;
+            --wrong: #c0392b;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace; /* 偵探打字機風格 */
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text);
+        }
+
+        .game-container {
+            background-color: var(--card-bg);
+            width: 90%;
+            max-width: 600px;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border-left: 10px solid var(--accent);
+            position: relative;
+        }
+
+        h1 {
+            text-align: center;
+            border-bottom: 2px dashed var(--text);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .detective-icon {
+            font-size: 3rem;
+            display: block;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        .case-file {
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #bdc3c7;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .case-file::before {
+            content: "機密檔案";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: var(--accent);
+            color: white;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            transform: rotate(-2deg);
+        }
+
+        .question-text {
+            font-size: 1.2rem;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-yes {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-no {
+            background-color: #e67e22;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Feedback Modal/Area */
+        .feedback-area {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            animation: fadeIn 0.5s;
+        }
+
+        .feedback-correct {
+            background-color: #d4edda;
+            border-left: 5px solid var(--correct);
+            color: #155724;
+        }
+
+        .feedback-wrong {
+            background-color: #f8d7da;
+            border-left: 5px solid var(--wrong);
+            color: #721c24;
+        }
+
+        .next-btn {
+            background-color: var(--text);
+            color: white;
+            width: 100%;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .result-screen {
+            display: none;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container" id="game-container">
+        <div id="start-screen">
+            <span class="detective-icon">🕵️‍♂️</span>
+            <h1>比例偵探事務所</h1>
+            <p>歡迎來到偵探特訓班！</p>
+            <p>我們會隨機從資料庫中調閱 <strong>5 份檔案</strong>。</p>
+            <p>你的任務是判斷現場留下的兩個比，是否指向同一個真相（是否成比例）。</p>
+            <button onclick="startGame()" style="background-color: var(--accent); color: white;">接受任務</button>
+        </div>
+
+        <div id="quiz-screen" class="hidden">
+            <div class="status-bar">
+                <span id="progress">案件：1 / 5</span>
+                <span id="score-display">偵探積分：0</span>
+            </div>
+
+            <div class="case-file">
+                <p><strong>證據比對：</strong></p>
+                <div class="question-text" id="question-content">
+                    載入中...
+                </div>
+            </div>
+
+            <div class="btn-group" id="options-area">
+                <button class="btn-yes" onclick="checkAnswer(true)">是，能組成比例</button>
+                <button class="btn-no" onclick="checkAnswer(false)">否，不能組成比例</button>
+            </div>
+
+            <div id="feedback" class="feedback-area"></div>
+            <button id="next-btn" class="next-btn" onclick="nextQuestion()">調查下一個案件</button>
+        </div>
+
+        <div id="result-screen" class="result-screen hidden">
+            <span class="detective-icon">🏆</span>
+            <h1>結案報告</h1>
+            <p id="final-message"></p>
+            <p style="font-size: 2rem; font-weight: bold;" id="final-score"></p>
+            <button onclick="location.reload()" style="background-color: var(--accent); color: white;">重新特訓</button>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲狀態
+        let currentQuestionIndex = 0;
+        let score = 0;
+        const totalQuestions = 5;
+        let questions = [];
+        let currentQuestion = null;
+
+        // 隨機數生成器 (min 到 max，包含 min 和 max)
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 題目生成工廠 (模擬100+題庫)
+        function generateQuestions(count) {
+            const tempQuestions = [];
+            
+            for (let i = 0; i < count; i++) {
+                // 決定這一題是否成比例 (50% 機率)
+                const isProportion = Math.random() < 0.5;
+                
+                // 基礎數字生成
+                let a = getRandomInt(1, 12);
+                let b = getRandomInt(2, 20);
+                
+                // 避免 a=b (1:1) 過於簡單，雖然也是合法的
+                if(a === b) b++;
+
+                // 倍數 (擴分用)
+                let scale = getRandomInt(2, 6);
+                
+                let c, d;
+
+                if (isProportion) {
+                    // 成比例：直接擴分
+                    c = a * scale;
+                    d = b * scale;
+                } else {
+                    // 不成比例：製造干擾項
+                    c = a * scale;
+                    // d 故意做錯一點點 (例如 +1 或 -1，或者用錯誤的倍數)
+                    let error = (Math.random() < 0.5) ? 1 : -1;
+                    d = (b * scale) + error; 
+                    
+                    // 二次確認避免巧合 (極小機率)
+                    if (a * d === b * c) d += 1;
+                }
+
+                // 隨機決定顯示格式 (目前統一為 A:B 和 C:D，可擴展為分數形式)
+                const qText = `第一組線索 ${a} : ${b} <br> 第二組線索 ${c} : ${d}`;
+
+                // 計算詳解
+                const outerProduct = a * d; // 外項積
+                const innerProduct = b * c; // 內項積
+                
+                let explanation = "";
+                if (isProportion) {
+                    explanation = `這是一個比例！<br>
+                    <strong>檢驗方法：</strong>內項積 = 外項積。<br>
+                    內項相乘：${b} × ${c} = ${innerProduct}<br>
+                    外項相乘：${a} × ${d} = ${outerProduct}<br>
+                    兩者相等，案件成立！`;
+                } else {
+                    explanation = `這不是比例！<br>
+                    <strong>檢驗方法：</strong>內項積 ≠ 外項積。<br>
+                    內項相乘：${b} × ${c} = ${innerProduct}<br>
+                    外項相乘：${a} × ${d} = ${outerProduct}<br>
+                    兩者不相等，這是偽證！`;
+                }
+
+                tempQuestions.push({
+                    text: qText,
+                    isCorrectYes: isProportion,
+                    explanation: explanation
+                });
+            }
+            return tempQuestions;
+        }
+
+        // 開始遊戲
+        function startGame() {
+            questions = generateQuestions(totalQuestions);
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            document.getElementById('score-display').innerText = `偵探積分：${score}`;
+            loadQuestion();
+        }
+
+        // 載入題目
+        function loadQuestion() {
+            currentQuestion = questions[currentQuestionIndex];
+            document.getElementById('progress').innerText = `案件：${currentQuestionIndex + 1} / ${totalQuestions}`;
+            document.getElementById('question-content').innerHTML = currentQuestion.text;
+            
+            // 重置介面
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('feedback').className = 'feedback-area';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('options-area').querySelectorAll('button').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        // 檢查答案
+        function checkAnswer(userAnswerIsYes) {
+            // 鎖定按鈕
+            document.getElementById('options-area').querySelectorAll('button').forEach(btn => {
+                btn.disabled = true;
+            });
+
+            const feedbackEl = document.getElementById('feedback');
+            const isCorrect = (userAnswerIsYes === currentQuestion.isCorrectYes);
+
+            feedbackEl.style.display = 'block';
+
+            if (isCorrect) {
+                score += 20; // 每題20分
+                feedbackEl.innerHTML = `<strong>✅ 推理正確！</strong><hr>${currentQuestion.explanation}`;
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                feedbackEl.innerHTML = `<strong>❌ 推理錯誤！</strong><hr>${currentQuestion.explanation}`;
+                feedbackEl.classList.add('feedback-wrong');
+            }
+
+            document.getElementById('score-display').innerText = `偵探積分：${score}`;
+            document.getElementById('next-btn').style.display = 'block';
+
+            // 如果是最後一題，按鈕文字改為查看結果
+            if (currentQuestionIndex === totalQuestions - 1) {
+                document.getElementById('next-btn').innerText = "查看特訓結果";
+            } else {
+                document.getElementById('next-btn').innerText = "調查下一個案件";
+            }
+        }
+
+        // 下一題
+        function nextQuestion() {
+            if (currentQuestionIndex < totalQuestions - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        // 顯示結果
+        function showResult() {
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('result-screen').style.display = 'block'; // 確保顯示
+
+            const finalScoreEl = document.getElementById('final-score');
+            const msgEl = document.getElementById('final-message');
+            
+            finalScoreEl.innerText = `${score} 分`;
+
+            if (score === 100) {
+                msgEl.innerText = "太神了！你是名副其實的神探福爾摩斯！🕵️‍♂️✨";
+            } else if (score >= 80) {
+                msgEl.innerText = "幹得好！你是傑出的資深警探！🚓";
+            } else if (score >= 60) {
+                msgEl.innerText = "通過考核！繼續累積經驗吧！📝";
+            } else {
+                msgEl.innerText = "別氣餒，數學偵探需要多練習計算喔！💪";
+            }
+        }
+    </script>
+</body>
+</html>
